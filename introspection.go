@@ -8,13 +8,29 @@ import (
 	"github.com/vektah/gqlparser/v2/ast"
 )
 
-
 // IntrospectRemoteSchema is used to build a RemoteSchema by firing the introspection query
 // at a remote service and reconstructing the schema object from the response
 func IntrospectRemoteSchema(url string) (*RemoteSchema, error) {
 
 	// introspect the schema at the designated url
 	schema, err := IntrospectAPI(NewSingleRequestQueryer(url))
+	if err != nil {
+		return nil, err
+	}
+
+	return &RemoteSchema{
+		URL:    url,
+		Schema: schema,
+	}, nil
+}
+
+// IntrospectRemoteSchemaWithAuth is used to build a RemoteSchema by firing the
+// introspection query at a remote service and reconstructing the schema object
+// from the response
+func IntrospectRemoteSchemaWithAuth(url, auth string) (*RemoteSchema, error) {
+
+	// introspect the schema at the designated url
+	schema, err := IntrospectAPI(NewSingleRequestQueryerWithAuth(auth, url))
 	if err != nil {
 		return nil, err
 	}
@@ -45,6 +61,28 @@ func IntrospectRemoteSchemas(urls ...string) ([]*RemoteSchema, error) {
 	return schemas, nil
 }
 
+// IntrospectRemoteSchemasWithAuth takes a list of URLs and creates a
+// RemoteSchema by invoking graphql.IntrospectRemoteSchema at that location.
+func IntrospectRemoteSchemasWithAuth(urls map[string]string) ([]*RemoteSchema, error) {
+	// build up the list of remote schemas
+	schemas := []*RemoteSchema{}
+
+	for service, token := range urls {
+		fmt.Printf("Attempting introspection on service: %s with token %s...\n", service, token)
+		// introspect the locations
+		schema, err := IntrospectRemoteSchemaWithAuth(service, token)
+		fmt.Println(err)
+		if err != nil {
+			return nil, err
+		}
+
+		// add the schema to the list
+		schemas = append(schemas, schema)
+	}
+
+	return schemas, nil
+}
+
 // IntrospectAPI send the introspection query to a Queryer and builds up the
 // schema object described by the result
 func IntrospectAPI(queryer Queryer) (*ast.Schema, error) {
@@ -52,7 +90,7 @@ func IntrospectAPI(queryer Queryer) (*ast.Schema, error) {
 	result := IntrospectionQueryResult{}
 
 	input := &QueryInput{
-		Query: IntrospectionQuery,
+		Query:         IntrospectionQuery,
 		OperationName: "IntrospectionQuery",
 	}
 

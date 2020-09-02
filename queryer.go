@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"reflect"
@@ -105,6 +106,7 @@ func (q QueryerFunc) Query(ctx context.Context, input *QueryInput, receiver inte
 }
 
 type NetworkQueryer struct {
+	AuthToken   string
 	URL         string
 	Middlewares []NetworkMiddleware
 	Client      *http.Client
@@ -120,6 +122,12 @@ func (q *NetworkQueryer) SendQuery(ctx context.Context, payload []byte) ([]byte,
 	// add the current context to the request
 	acc := req.WithContext(ctx)
 	acc.Header.Set("Content-Type", "application/json")
+
+	fmt.Println("Checking Auth Token on NetworkQueryer...")
+	fmt.Println(q.AuthToken)
+	if q.AuthToken != "" {
+		acc.Header.Set("Authorization", "Bearer "+q.AuthToken)
+	}
 
 	// we could have any number of middlewares that we have to go through so
 	for _, mware := range q.Middlewares {
@@ -144,6 +152,55 @@ func (q *NetworkQueryer) SendQuery(ctx context.Context, payload []byte) ([]byte,
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
+
+	// we're done
+	return body, err
+}
+
+// SendQueryWithAuth is responsible for sending the provided payload to the designated URL
+func (q *NetworkQueryer) SendQueryWithAuth(ctx context.Context, auth string, payload []byte) ([]byte, error) {
+	fmt.Println("== SendQueryWithAuth ==")
+	fmt.Println(q.URL)
+	fmt.Println(auth)
+	fmt.Println("== END SendQueryWithAuth ==")
+
+	// construct the initial request we will send to the client
+	req, err := http.NewRequest("POST", q.URL, bytes.NewBuffer(payload))
+	if err != nil {
+		return nil, err
+	}
+	// add the current context to the request
+	acc := req.WithContext(ctx)
+	acc.Header.Set("Content-Type", "application/json")
+
+	// add auth token to the request
+	acc.Header.Set("Authorization", "Bearer "+auth)
+
+	// we could have any number of middlewares that we have to go through so
+	for _, mware := range q.Middlewares {
+		err := mware(acc)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// fire the response to the queryer's url
+	if q.Client == nil {
+		q.Client = &http.Client{}
+	}
+
+	resp, err := q.Client.Do(acc)
+	if err != nil {
+		return nil, err
+	}
+
+	// read the full body
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(body)
 	defer resp.Body.Close()
 
 	// we're done

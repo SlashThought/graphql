@@ -21,6 +21,16 @@ func NewSingleRequestQueryer(url string) *SingleRequestQueryer {
 	}
 }
 
+// NewSingleRequestQueryerWithAuth returns a SingleRequestQueryer pointed to the given url
+func NewSingleRequestQueryerWithAuth(auth, url string) *SingleRequestQueryer {
+	return &SingleRequestQueryer{
+		queryer: &NetworkQueryer{
+			AuthToken: auth,
+			URL:       url,
+		},
+	}
+}
+
 // WithMiddlewares returns a network queryer that will apply the provided middlewares
 func (q *SingleRequestQueryer) WithMiddlewares(mwares []NetworkMiddleware) Queryer {
 	// for now just change the internal reference
