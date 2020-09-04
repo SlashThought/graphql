@@ -51,6 +51,10 @@ func (q *SingleRequestQueryer) URL() string {
 	return q.queryer.URL
 }
 
+func (q *SingleRequestQueryer) AuthToken() string {
+	return q.queryer.AuthToken
+}
+
 // Query sends the query to the designated url and returns the response.
 func (q *SingleRequestQueryer) Query(ctx context.Context, input *QueryInput, receiver interface{}) error {
 	// the payload
